@@ -1,227 +1,145 @@
-# Alert Injection & Verification Tests
+# Alert Injection and Verification Tests
 
-Validate Wazuh detection rules by triggering alerts from lab environment. All tests use Project 1 network topology.
+Validate Wazuh detection rules end-to-end using the lab network topology from Project 1. Run these after any rule change or Wazuh upgrade. Expected results are listed for each test so you know what passing looks like.
 
-## Test 1: SSH Brute Force Detection (Rule 5001)
+---
 
-Test Objective: Verify SSH brute force rule detects repeated login failures
+## Test 1: SSH Brute Force (Rule 5001)
 
-Steps:
-1. From external VM or attacker simulator:
-2.    ssh admin@10.10.99.1 -p 22 (incorrect password, repeat 10 times)
+**Objective:** Verify rule 5001 fires on repeated SSH authentication failures.
 
-3.2. Monitor Wazuh alerts in real-time:
-   tail -f /var/ossec/logs/alerts/alerts.json | grep "5001"
+**From a test VM on the guest VLAN (10.10.99.x):**
 
-   3. Expected Alert:
-   4.    - source_ip: attacker IP
-         -    - rule_id: 5001
-              -    - level: 7 (high)
-                   -    - group: [authentication, ssh, brute_force]
-                    
-                        - 4. Verify Alert Action:
-                          5.    - Check if firewall has rule to drop source IP (dependent on IR playbook)
-                                -    - Alert email sent to security team
-                                 
-                                     - Pass Criteria: Alert fires within 30 seconds of 5th failed attempt
-                                 
-                                     - ## Test 2: Port Scan Detection (Rule 5002)
-                                 
-                                     - Test Objective: Verify port scan detection works
-                                 
-                                     - Steps:
-                                     - 1. Run nmap from external VM targeting management VLAN:
-                                       2.    nmap -p 1-1000 10.10.99.0/24 -sV
-                                      
-                                       3.2. Monitor Wazuh:
-                                          tail -f /var/ossec/logs/alerts/alerts.json | grep "5002"
+```bash
+# generate 15 failed SSH attempts in quick succession
+for i in $(seq 1 15); do
+  ssh -o ConnectTimeout=3 -o StrictHostKeyChecking=no admin@10.10.20.10 2>/dev/null
+done
+```
 
-                                       3. Expected Alert:
-                                       4.    - source_ip: nmap VM
-                                             -    - rule_id: 5002
-                                                  -    - level: 5 (medium)
-                                                       -    - group: [network, scan, reconnaissance]
-                                                        
-                                                            - 4. Verify Firewall Logs:
-                                                              5.    Check pfSense logs for dropped packets to unreachable ports
-                                                             
-                                                              6.Pass Criteria: Alert fires during scan, firewall blocks attempts
+**On Wazuh manager - watch for the alert:**
 
-                                                              ## Test 3: ACL Violation (Rule 5003)
+```bash
+tail -f /var/ossec/logs/alerts/alerts.json | python3 -c "
+import sys, json
+for line in sys.stdin:
+  try:
+    a = json.loads(line)
+    if a.get('rule', {}).get('id') == '5001':
+      print(json.dumps(a, indent=2))
+  except: pass
+"
+```
 
-                                                              Test Objective: Guest VLAN should not reach Server VLAN
+**Expected result:** Alert with rule.id 5001, level 7, group "authentication,ssh,brute_force". Should fire within 60 seconds of the 10th failure. Source IP should show 10.10.99.x.
 
-                                                              Steps:
-                                                              1. Connect test VM to Guest VLAN (10.10.30.0/24)
-                                                              2. 2. From test VM: ping 10.10.20.10 (Wazuh server, restricted)
-                                                                 3. 3. Packet should be dropped by ACL on SW-DIST (rule 5003)
-                                                                   
-                                                                    4. Monitor on R1-CORE:
-                                                                    5.    sh ip access-lists GUEST-RESTRICT
-                                                                    6.   (should show match count increasing)
-                                                                   
-                                                                    7.   Expected Wazuh Alert:
-                                                                    8.      - rule_id: 5003
-                                                                    9.     - level: 6
-                                                                    10.    - group: [network, security, acl]
-                                                                       
-                                                                           - Pass Criteria: Ping fails, ACL match count increments, Wazuh alert fires
-                                                                       
-                                                                           - ## Test 4: Spanning Tree Topology Change (Rule 5004)
-                                                                       
-                                                                           - Test Objective: Detect unexpected STP topology changes
-                                                                       
-                                                                           - Steps:
-                                                                           - 1. Shutdown root bridge (SW-DIST):
-                                                                             2.    conf t
-                                                                             3.   shutdown (on Gi0/0)
-                                                                            
-                                                                             4.   2. Monitor spanning tree:
-                                                                                  3.    sh spanning-tree summary
-                                                                               
-                                                                                  4.3. Wait for new root election (should be R1-CORE or SW-ACC-1)
+---
 
-                                                                                  Expected Wazuh Alert:
-                                                                                     - rule_id: 5004
-                                                                                     -    - level: 7
-                                                                                          -    - Keywords: "topology change", "new root", "bridge ID"
-                                                                                           
-                                                                                               - 4. Restore:
-                                                                                                 5.    no shutdown
-                                                                                                
-                                                                                                 6.Pass Criteria: Alert fires when topology changes, resolves when network stabilized
+## Test 2: Port Scan Detection (Rule 5002)
 
-                                                                                                 ## Test 5: Unauthorized VLAN Access (Rule 5005)
+**Objective:** Verify port scan rule triggers on rapid connection attempts from unexpected sources.
 
-                                                                                                 Test Objective: Detect guest attempting to reach server resources
+```bash
+# from a test host - simulate a port scan toward the server VLAN
+nmap -sS -T4 --top-ports 100 10.10.20.0/24 2>&1 | head -20
+```
 
-                                                                                                 Steps:
-                                                                                                 1. Assign test VM to Guest VLAN
-                                                                                                 2. 2. Attempt to SSH to server subnet device (10.10.20.10):
-                                                                                                    3.    ssh admin@10.10.20.10
-                                                                                                   
-                                                                                                    4.3. SSH attempt blocked by GUEST-RESTRICT ACL on SW-DIST
-                                                                                                    
-                                                                                                    Expected Wazuh Alert:
-                                                                                                       - rule_id: 5005
-                                                                                                       -    - level: 8 (critical)
-                                                                                                            -    - group: [network, vlan, policy_violation]
-                                                                                                             
-                                                                                                                 - 4. Verify escalation:
-                                                                                                                   5.    - Check for email/Slack notification to security team
-                                                                                                                         -    - Incident should be logged at level 8
-                                                                                                                          
-                                                                                                                              - Pass Criteria: Alert fires immediately, escalation triggers, incident logged
-                                                                                                                          
-                                                                                                                              - ## Test 6: Failed Privileged Account Auth (Rule 5006)
-                                                                                                                          
-                                                                                                                              - Test Objective: Detect attacks on admin/root accounts
-                                                                                                                          
-                                                                                                                              - Steps:
-                                                                                                                              - 1. Attempt login with wrong password:
-                                                                                                                                2.    ssh root@10.10.99.1 (wrong password, retry 5 times)
-                                                                                                                               
-                                                                                                                                3.2. Monitor auth logs:
-                                                                                                                                   grep "Failed password for root" /var/log/auth.log
-                                                                                                                                
-                                                                                                                                Expected Wazuh Alert:
-                                                                                                                                   - rule_id: 5006
-                                                                                                                                   -    - level: 8 (critical)
-                                                                                                                                        -    - group: [authentication, privilege_escalation, critical]
-                                                                                                                                         
-                                                                                                                                             - 4. Verify:
-                                                                                                                                               5.    - Alert fires on 2nd failed attempt
-                                                                                                                                                     -    - Email notification sent immediately
-                                                                                                                                                      
-                                                                                                                                                          - Pass Criteria: Alert within 10 seconds, source IP tracked, escalation priority set
-                                                                                                                                                      
-                                                                                                                                                          - ## Test 7: Port Security Violation (Rule 5007)
-                                                                                                                                                      
-                                                                                                                                                          - Test Objective: Detect port security violations on access switches
-                                                                                                                                                      
-                                                                                                                                                          - Steps:
-                                                                                                                                                          - 1. Connect 3 devices to single access port on SW-ACC-1 (exceeds sticky MAC limit of 1):
-                                                                                                                                                            2.    - Device A, Device B, Device C
-                                                                                                                                                              
-                                                                                                                                                                  - 2. Port should go to "secure-shutdown" state
-                                                                                                                                                                   
-                                                                                                                                                                    3. Monitor on SW-ACC-1:
-                                                                                                                                                                    4.    sh port-security
-                                                                                                                                                                   
-                                                                                                                                                                    5.Expected Wazuh Alert:
-                                                                                                                                                                       - rule_id: 5007
-                                                                                                                                                                       -    - level: 6
-                                                                                                                                                                            -    - Keywords: "port security", "violation", "secure MAC"
-                                                                                                                                                                             
-                                                                                                                                                                                 - Pass Criteria: Port security event logged, Wazuh alert fires
-                                                                                                                                                                             
-                                                                                                                                                                                 - ## Test 8: Unauthorized MAC Address (Rule 5008)
-                                                                                                                                                                             
-                                                                                                                                                                                 - Test Objective: Detect rogue MAC addresses
-                                                                                                                                                                             
-                                                                                                                                                                                 - Steps:
-                                                                                                                                                                                 - 1. Connect device with random/spoofed MAC to network
-                                                                                                                                                                                   2. 2. Monitor ARP table changes on SW-ACC-1
-                                                                                                                                                                                     
-                                                                                                                                                                                      3. Expected Wazuh Alert:
-                                                                                                                                                                                      4.    - rule_id: 5008
-                                                                                                                                                                                            -    - level: 7
-                                                                                                                                                                                                 -    - Keywords: "unknown MAC", "unauthorized"
-                                                                                                                                                                                                  
-                                                                                                                                                                                                      - Pass Criteria: Alert fires when new MAC learned on switch
-                                                                                                                                                                                                  
-                                                                                                                                                                                                      - ## Test 9: OSPF Neighbor Down (Rule 5009)
-                                                                                                                                                                                                  
-                                                                                                                                                                                                      - Test Objective: Verify OSPF neighbor loss detection
-                                                                                                                                                                                                  
-                                                                                                                                                                                                      - Steps:
-                                                                                                                                                                                                      - 1. Shutdown OSPF on R1-CORE:
-                                                                                                                                                                                                        2.    conf t
-                                                                                                                                                                                                        3.   router ospf 1
-                                                                                                                                                                                                        4.      shutdown
-                                                                                                                                                                                                       
-                                                                                                                                                                                                        5.  2. Monitor on SW-DIST:
-                                                                                                                                                                                                            3.    sh ip ospf neighbor (should show neighbor down)
-                                                                                                                                                                                                          
-                                                                                                                                                                                                            4.Expected Wazuh Alert:
-                                                                                                                                                                                                               - rule_id: 5009
-                                                                                                                                                                                                               -    - level: 5
-                                                                                                                                                                                                                    -    - Keywords: "OSPF", "neighbor", "down"
-                                                                                                                                                                                                                     
-                                                                                                                                                                                                                         - 3. Restore:
-                                                                                                                                                                                                                           4.    no shutdown
-                                                                                                                                                                                                                          
-                                                                                                                                                                                                                           5.Pass Criteria: Alert fires when neighbor goes down, clears when restored
-                                                                                                                                                                                                                           
-                                                                                                                                                                                                                           ## Test 10: Interface Flap (Rule 5010)
-                                                                                                                                                                                                                           
-                                                                                                                                                                                                                           Test Objective: Detect frequent link state changes
-                                                                                                                                                                                                                           
-                                                                                                                                                                                                                           Steps:
-                                                                                                                                                                                                                           1. On SW-DIST, flap an interface 5 times quickly:
-                                                                                                                                                                                                                           2.    conf t
-                                                                                                                                                                                                                           3.   interface Gi0/1
-                                                                                                                                                                                                                           4.      shutdown
-                                                                                                                                                                                                                           5.     no shutdown
-                                                                                                                                                                                                                           6.    (repeat 5 times rapidly)
-                                                                                                                                                                                                                          
-                                                                                                                                                                                                                           7.Expected Wazuh Alert:
-                                                                                                                                                                                                                              - rule_id: 5010
-                                                                                                                                                                                                                              -    - level: 4
-                                                                                                                                                                                                                                   -    - Keywords: "line protocol", "up", "down"
-                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                        - Pass Criteria: Multiple alerts for up/down transitions, pattern recognized
-                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                        - ## Overall Verification Checklist
-                                                                                                                                                                                                                                    
-                                                                                                                                                                                                                                        - - All 10 rules generate alerts at expected severity levels
-                                                                                                                                                                                                                                          - - Email notifications sent for Level 7+ alerts
-                                                                                                                                                                                                                                            - - Alert JSON format valid and parseable
-                                                                                                                                                                                                                                              - - Wazuh dashboard displays alerts in real-time
-                                                                                                                                                                                                                                                - - Playbook runbooks referenced correctly in alerts
-                                                                                                                                                                                                                                                  - - Change control documentation complete
-                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                    - ## Alert Aggregation Query
-                                                                                                                                                                                                                                                   
-                                                                                                                                                                                                                                                    - View all security events in 24-hour period:
-                                                                                                                                                                                                                                                    - /var/ossec/logs/alerts/alerts.json | jq '.[] | select(.rule.level >= 5)' | jq -s 'group_by(.rule.id) | map({rule_id: .[0].rule.id, description: .[0].rule.description, count: length})' | jq sort_by(.count) | jq reverse
+**Check Wazuh:**
+
+```bash
+grep "rule_id.*5002" /var/ossec/logs/alerts/alerts.json | tail -5
+```
+
+**Expected result:** Alert with rule.id 5002, level 6, group "recon,port_scan". If scan came from guest VLAN, severity should be higher. Alert fires within 2 minutes of scan start.
+
+---
+
+## Test 3: ACL Violation Logging (Rule 5003)
+
+**Objective:** Verify that Cisco ACL deny hits generate syslog and trigger Wazuh rule 5003.
+
+On R1-CORE, ACL denies are logged via syslog. Try to reach a restricted destination from the guest VLAN:
+
+```bash
+# from a guest VLAN host - attempt connection to management VLAN
+curl -m 3 http://10.10.30.1 2>&1
+ping -c 3 10.10.20.10
+```
+
+**On Wazuh, verify syslog arrived and rule fired:**
+
+```bash
+grep "acl_violation|rule_id.*5003" /var/ossec/logs/alerts/alerts.json | tail -5
+
+# also check the raw syslog archive
+grep "ACLLOG|SEC-6-IPACCESSLOGP" /var/ossec/logs/archives/archives.log | tail -10
+```
+
+**Expected result:** Wazuh archives show the ACL hit syslog from R1-CORE (10.10.10.1). Rule 5003 alert appears with source 10.10.99.x and destination 10.10.20.x or 10.10.30.x.
+
+---
+
+## Test 4: Spanning Tree BPDU (Rule 5004)
+
+**Objective:** Verify unexpected BPDU detection on access ports.
+
+This test requires physically connecting a switch or sending a raw BPDU. In a GNS3/EVE-NG lab:
+
+```
+# on SW-ACC-1 - connect a second switch port to an access port
+# STP will generate a topology change notification
+# check switch log for: %SPANTREE-6-PORTDEL_ACCESS_PVST or %STP-3-BAD_BPDU
+```
+
+Alternatively, trigger a topology change by enabling then disabling a trunk:
+
+```
+SW-ACC-1# conf t
+SW-ACC-1(config)# interface GigabitEthernet1/1
+SW-ACC-1(config-if)# shutdown
+SW-ACC-1(config-if)# no shutdown
+```
+
+**Expected result:** STP topology change syslog from SW-ACC-1 appears in Wazuh archives. Rule 5004 fires with level 8 if a new root bridge is elected, level 5 for a standard topology change.
+
+---
+
+## Test 5: Guest-to-Server VLAN Violation (Rule 5005)
+
+**Objective:** Confirm cross-VLAN policy violation detection from the guest segment.
+
+```bash
+# from guest VLAN (10.10.99.x) - attempt to reach server VLAN directly
+nmap -p 22,80,443,3306 10.10.20.0/24 --open 2>&1 | head -20
+curl -m 3 http://10.10.20.10:55000  # wazuh API
+```
+
+**Expected result:** pfSense or R1-CORE drops the traffic and logs the ACL hit. Wazuh sees the syslog and fires rule 5005. Alert level 7, group "policy_violation,vlan,lateral_movement".
+
+---
+
+## Test 6: Privileged Account Failure (Rule 5006)
+
+**Objective:** Verify privileged auth failure detection for sudo and enable-mode attempts.
+
+```bash
+# generate failed sudo attempts on Wazuh manager itself
+sudo -u nobody ls / 2>/dev/null || true
+su - root <<< "wrongpassword" 2>/dev/null || true
+```
+
+**Expected result:** Rule 5006 fires, level 8, group "authentication,privilege_escalation,admin". Should appear in alerts within 30 seconds.
+
+---
+
+## Syslog Connectivity Check
+
+Before running alert tests, confirm all 4 network devices are sending syslog:
+
+```bash
+# check which sources are in the last 5 minutes of archives
+grep "$(date +'%Y %b %d %H')" /var/ossec/logs/archives/archives.log | \
+  grep -oP '\d+\.\d+\.\d+\.\d+' | sort | uniq -c | sort -rn | head -20
+```
+
+You should see traffic from 10.10.10.1 (R1-CORE), 10.10.10.2 (SW-DIST), 10.10.10.3 (SW-ACC-1), 10.10.10.4 (SW-ACC-2). If any are missing, check the syslog config on that device and verify UDP 514 is open in the inter-VLAN ACLs.
