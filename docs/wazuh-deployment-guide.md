@@ -1,186 +1,148 @@
 # Wazuh Deployment Guide
 
-Step-by-step setup for production Wazuh SIEM on VLAN 20 (10.10.20.10).
+Step-by-step setup for production Wazuh SIEM on VLAN 20 (10.10.20.10). This covers the full deployment from base OS through agent enrollment and rule loading.
 
 ## Prerequisites
 
 - Debian 11 or Ubuntu 22.04 LTS VM
-- - 4GB RAM minimum, 50GB disk
-  - - Static IP: 10.10.20.10 on VLAN 20
-    - - Network connectivity to all devices (R1-CORE, SW-DIST, SW-ACC-1, SW-ACC-2, pfSense)
-      - - Root or sudo access
-       
-        - ## Phase 1: Base VM Setup
-       
-        - 1. Install OS and basic tools:
-          2.    sudo apt update && sudo apt upgrade -y
-          3.   sudo apt install -y curl wget tar gzip net-tools
-         
-          4.   2. Set hostname:
-               3.    sudo hostnamectl set-hostname wazuh-siem
-               4.   echo "10.10.20.10 wazuh-siem" | sudo tee -a /etc/hosts
-            
-               5.   3. Disable firewall (or configure to allow ports 514/UDP and 1514/TCP):
-                    4.    sudo systemctl stop ufw || sudo systemctl stop firewalld
-                 
-                    5.4. Verify connectivity to network devices:
-                       ping 10.10.1.1 (R1-CORE)
-                       ping 10.10.1.2 (SW-DIST)
+- 4GB RAM minimum, 50GB disk
+- Static IP: 10.10.20.10 on VLAN 20
+- Network connectivity to R1-CORE, SW-DIST, SW-ACC-1, SW-ACC-2, and pfSense
+- Root or sudo access
 
-                    ## Phase 2: Wazuh Manager Installation
+## Phase 1: Base VM Setup
 
-                    1. Download latest Wazuh 4.7:
-                    2.    cd /tmp
-                    3.   wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-manager/wazuh-manager_4.7.0-1_amd64.deb
-                 
-                    4.   2. Install:
-                         3.    sudo dpkg -i wazuh-manager_4.7.0-1_amd64.deb
-                         4.   sudo systemctl daemon-reload
-                      
-                         5.   3. Enable and start service:
-                              4.    sudo systemctl enable wazuh-manager
-                              5.   sudo systemctl start wazuh-manager
-                           
-                              6.   4. Verify installation:
-                                   5.    sudo systemctl status wazuh-manager
-                                   6.   sudo /var/ossec/bin/wazuh-control info
-                                
-                                   7.   ## Phase 3: Configure Ossec Manager
-                                
-                                   8.   1. Copy ossec.conf from configs/:
-                                        2.    sudo cp configs/ossec.conf /var/ossec/etc/
-                                     
-                                        3.2. Create syslog input listener (port 514/UDP):
-                                           Verify configs/ossec.conf has:
-                                           <remote>
-                                                <connection>syslog</connection>
-                                                     <port>514</port>
-                                                          <protocol>udp</protocol>
-                                                               <allowed-ips>10.10.0.0/16</allowed-ips>
-                                                                  </remote>
+Set the static IP and hostname before anything else. Wazuh agents use the manager's hostname for enrollment so changing it later breaks things.
 
-                                                                  3. Load custom detection rules:
-                                           sudo cp rules/custom-rules.xml /var/ossec/etc/rules/
-                                           sudo chown root:ossec /var/ossec/etc/rules/custom-rules.xml
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl wget gnupg2 software-properties-common
 
-                                        4. Verify rules syntax:
-                                        5.    sudo /var/ossec/bin/wazuh-control rule-test
-                                     
-                                        6.5. Restart manager:
-                                           sudo systemctl restart wazuh-manager
+# set hostname
+sudo hostnamectl set-hostname wazuh-manager
+echo "10.10.20.10 wazuh-manager" | sudo tee -a /etc/hosts
 
-                                        ## Phase 4: Configure Network Device Syslog Forwarding
+# disable unused services
+sudo systemctl disable avahi-daemon cups bluetooth 2>/dev/null || true
+```
 
-                                        Apply configurations from configs/syslog-forwarding.txt to:
-                                        - R1-CORE: logging 10.10.20.10
-                                        - - SW-DIST: logging 10.10.20.10
-                                          - - SW-ACC-1: logging 10.10.20.10
-                                            - - SW-ACC-2: logging 10.10.20.10
-                                              - - pfSense: System > System Logs > Remote Syslog Server 10.10.20.10
-                                               
-                                                - Test from each device:
-                                                -   Device# debug condition syslog buffer 1 no-list
-                                                -     Device# no debug all
-                                                -   (generates test syslog entry)
-                                               
-                                                -   ## Phase 5: Verify Alert Pipeline
-                                               
-                                                -   1. Monitor incoming syslog:
-                                                    2.    sudo tail -f /var/ossec/logs/alerts/alerts.json | jq '.[]'
-                                                 
-                                                    3.2. Trigger test alert (SSH brute force simulation):
-                                                       ssh admin@10.10.99.1 (wrong password x10)
+Configure static IP in /etc/network/interfaces:
 
-                                                    3. Check if alert appears:
-                                                    4.    sudo grep "5001" /var/ossec/logs/alerts/alerts.json
-                                                 
-                                                    5.4. Validate alert structure:
-                                                       sudo /var/ossec/bin/wazuh-control info
+```
+auto eth0
+iface eth0 inet static
+  address 10.10.20.10
+  netmask 255.255.255.0
+  gateway 10.10.20.1
+  dns-nameservers 8.8.8.8 1.1.1.1
+```
 
-                                                    ## Phase 6: Wazuh Dashboard Installation
+## Phase 2: Wazuh Manager Installation
 
-                                                    1. Install Wazuh Dashboard (UI for browsing alerts):
-                                                    2.    wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-dashboard/wazuh-dashboard_4.7.0-1_amd64.deb
-                                                    3.   sudo dpkg -i wazuh-dashboard_4.7.0-1_amd64.deb
-                                                 
-                                                    4.   2. Start dashboard:
-                                                         3.    sudo systemctl enable wazuh-dashboard
-                                                         4.   sudo systemctl start wazuh-dashboard
-                                                      
-                                                         5.   3. Access UI:
-                                                              4.    https://10.10.20.10:443
-                                                              5.   Username: admin
-                                                              6.      Password: (default generated during install)
-                                                           
-                                                              7.  ## Phase 7: Alert Email Configuration
-                                                           
-                                                              8.  Edit /var/ossec/etc/ossec.conf email settings:
-                                                              9.     <email_notification>yes</email_notification>
-                                                              10.    <email_from>wazuh@10.10.20.10</email_from>
-                                                                 <smtp_server>mail.company.com</smtp_server>
+Wazuh 4.7 is the target version. The install script handles the full stack including Elasticsearch-compatible indexer.
 
-                                                                 Configure alert recipients:
-                                                                 <email_alert_level>7</email_alert_level>
+```bash
+curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh
+curl -sO https://packages.wazuh.com/4.7/config.yml
 
-                                                                 Verify SMTP connectivity:
-                                                                 telnet mail.company.com 25
+# edit config.yml to set your node IPs before running
+# nodes.indexer[0].ip = 10.10.20.10
+# nodes.server[0].ip = 10.10.20.10
+# nodes.dashboard[0].ip = 10.10.20.10
 
-                                                              Restart manager:
-                                                                 sudo systemctl restart wazuh-manager
+sudo bash wazuh-install.sh -a
+```
 
-                                                              ## Phase 8: Metrics Export for Prometheus
+After install, save the admin credentials printed at the end. Change them on first login.
 
-                                                              Install Wazuh API exporter:
-                                                                 sudo apt install -y python3-pip
-                                                                 pip install wazuh-api-client
+Verify services are running:
 
-                                                              Configure Prometheus scrape (in Prometheus config):
-                                                                 - job_name: 'wazuh'
-                                                                 -      static_configs:
-                                                                 -         - targets: ['10.10.20.10:1514']
-                                                           
-                                                                 -     ## Phase 9: Backup & Disaster Recovery
-                                                           
-                                                                 - 1. Backup Wazuh configuration and rules:
-                                                                   2.    sudo tar -czf /backup/wazuh-backup-$(date +%Y%m%d).tar.gz /var/ossec/etc/
-                                                                  
-                                                                   3.2. Backup alerts database:
-                                                                      sudo tar -czf /backup/wazuh-alerts-$(date +%Y%m%d).tar.gz /var/ossec/logs/
+```bash
+sudo systemctl status wazuh-manager wazuh-indexer wazuh-dashboard
+```
 
-                                                                   3. Schedule daily backups:
-                                                                   4.    0 2 * * * root tar -czf /backup/wazuh-backup-$(date +\%Y\%m\%d).tar.gz /var/ossec/etc/ >> /var/log/wazuh-backup.log 2>&1
-                                                                  
-                                                                   5.## Phase 10: Hardening & Maintenance
+## Phase 3: Firewall / Port Rules
 
-                                                                   1. Restrict file permissions:
-                                                                   2.    sudo chown -R root:ossec /var/ossec/etc/
-                                                                   3.   sudo chmod -R 550 /var/ossec/etc/
-                                                                  
-                                                                   4.   2. Enable log rotation:
-                                                                        3.    Configure logrotate for /var/ossec/logs/
-                                                                     
-                                                                        4.3. Monthly security patching:
-                                                                           sudo apt upgrade wazuh-manager
+Open necessary ports on the host firewall. pfSense handles inter-VLAN ACLs but the host firewall still needs these:
 
-                                                                        4. Quarterly rule review:
-                                                                        5.    Review custom-rules.xml for obsolete rules
-                                                                        6.   Update rule thresholds based on false positive analysis
-                                                                     
-                                                                        7.   ## Troubleshooting
-                                                                     
-                                                                        8.   No alerts from devices:
-                                                                        9.   1. Verify syslog forwarding configured on each device
-                                                                             2. 2. Check firewall allows UDP 514 inbound
-                                                                                3. 3. Monitor: sudo tcpdump -i eth0 -n udp port 514
-                                                                                   4. 4. Restart manager: sudo systemctl restart wazuh-manager
-                                                                                     
-                                                                                      5. Alert not triggering:
-                                                                                      6. 1. Verify rule syntax: sudo /var/ossec/bin/wazuh-control rule-test
-                                                                                         2. 2. Check rule is loaded: sudo grep "custom-rules" /var/ossec/etc/ossec.conf
-                                                                                            3. 3. Simulate alert: ssh admin@10.10.99.1 with wrong password
-                                                                                               4. 4. Check logs: sudo tail -f /var/ossec/logs/ossec.log
-                                                                                                 
-                                                                                                  5. Connection refused on 10.10.20.10:
-                                                                                                  6. 1. Verify Wazuh manager running: sudo systemctl status wazuh-manager
-                                                                                                     2. 2. Check port listening: sudo netstat -tlnp | grep wazuh
-                                                                                                        3. 3. Restart: sudo systemctl restart wazuh-manager
+```bash
+sudo ufw allow 1514/udp   # agent communication
+sudo ufw allow 1515/tcp   # agent enrollment
+sudo ufw allow 514/udp    # syslog from network devices
+sudo ufw allow 55000/tcp  # wazuh API
+sudo ufw allow 9200/tcp   # indexer (local only)
+sudo ufw allow 443/tcp    # dashboard
+sudo ufw enable
+```
+
+## Phase 4: Custom Rules
+
+Load the custom rules from rules/custom-rules.xml into Wazuh. These cover rules 5001-5006 for network-specific detection.
+
+```bash
+sudo cp rules/custom-rules.xml /var/ossec/etc/rules/
+sudo chown root:wazuh /var/ossec/etc/rules/custom-rules.xml
+sudo chmod 660 /var/ossec/etc/rules/custom-rules.xml
+
+# validate config before restarting
+sudo /var/ossec/bin/wazuh-logtest
+
+# apply
+sudo systemctl restart wazuh-manager
+```
+
+Check rules loaded correctly:
+
+```bash
+sudo /var/ossec/bin/wazuh-control status
+grep -r "rule id="500" /var/ossec/logs/ossec.log | tail -5
+```
+
+## Phase 5: Syslog Forwarding from Network Devices
+
+Apply configs/syslog-forwarding.txt to each device. Devices send UDP 514 syslog to 10.10.20.10. Wazuh is already listening by default.
+
+Verify syslog is arriving:
+
+```bash
+sudo tcpdump -i eth0 udp port 514 -nn -c 20
+tail -f /var/ossec/logs/archives/archives.log | grep -E "R1-CORE|SW-DIST|SW-ACC"
+```
+
+## Phase 6: Agent Enrollment (Linux Hosts)
+
+For any Linux hosts on the network that need agent-based monitoring:
+
+```bash
+# on the agent host
+curl -s https://packages.wazuh.com/key/GPG-KEY-WAZUH | sudo apt-key add -
+echo "deb https://packages.wazuh.com/4.x/apt/ stable main" | sudo tee /etc/apt/sources.list.d/wazuh.list
+sudo apt update && sudo apt install wazuh-agent
+
+# set manager IP
+sudo sed -i 's/MANAGER_IP/10.10.20.10/' /var/ossec/etc/ossec.conf
+sudo systemctl enable --now wazuh-agent
+```
+
+Approve enrollment in the Wazuh dashboard under Agents > Pending.
+
+## Phase 7: Validation
+
+Run the alert injection tests in verification/alert-tests.md to confirm the full detection pipeline is working. Key checks:
+
+- SSH brute force triggers rule 5001 within 60 seconds
+- Port scan attempt triggers rule 5002
+- Syslog from all 4 network devices is appearing in archives
+- Dashboard is accessible at https://10.10.20.10
+
+## Rollback
+
+If the deployment needs to be undone:
+
+```bash
+sudo bash wazuh-install.sh -u  # uninstall all components
+sudo ufw delete allow 1514/udp
+sudo ufw delete allow 514/udp
+```
+
+Document the rollback in docs/itil-change-log.md under the original change record with reason and timestamp.
