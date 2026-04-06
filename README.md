@@ -1,6 +1,6 @@
 # Wazuh SIEM Deployment
 
-A production-ready Wazuh setup integrated with the enterprise network from Project 1. Covers deployment, custom detection rules, incident response workflows, and ITIL-based change management.
+Wazuh SIEM setup integrated with the enterprise network from Project 1. Covers deployment, custom detection rules, incident response workflows, and ITIL-based change management.
 
 ## What This Is
 
@@ -34,7 +34,7 @@ wazuh-siem-deployment/
     ossec.conf                       # Wazuh manager config - syslog inputs, email alerts
     syslog-forwarding.txt            # IOS syslog config to apply on each Cisco device
   rules/
-    custom-rules.xml                 # rules 5001-5006 for network security events
+    custom-rules.xml                 # rules 5001-5010 for network security events
   playbooks/
     incident-response-workflows.md   # ITIL IR workflows for each alert type
   docs/
@@ -61,6 +61,10 @@ The rules/ directory includes patterns for:
 - Unexpected spanning tree BPDUs (rule 5004)
 - Guest VLAN reaching restricted subnets (rule 5005)
 - Failed authentication on privileged accounts (rule 5006)
+- Port security violation (rule 5007)
+- Unauthorized device connection (rule 5008)
+- OSPF neighbor down (rule 5009)
+- Interface flap detection (rule 5010)
 
 Each rule includes severity levels (critical, high, medium) and grouping for dashboard aggregation.
 

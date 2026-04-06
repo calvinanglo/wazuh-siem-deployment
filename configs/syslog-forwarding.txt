@@ -10,11 +10,10 @@ logging facility local6
 logging buffered 8000
 
 ! Set syslog severity level (debug=7, info=6, notice=5, warning=4, error=3, critical=2, alert=1, emergency=0)
-logging level 6
+logging trap informational
 
-! Enable OSPF events
-logging ospf adjacency-changes
-logging ospf router-id
+! OSPF adjacency changes are logged by default in IOS 15.x.
+! If you want explicit config, add "log-adjacency-changes" under "router ospf 1".
 
 ! Save config
 end
@@ -32,12 +31,11 @@ logging source-interface Vlan10
 logging facility local6
 logging buffered 8000
 
-! Log spanning tree events
-logging spanning-tree bpdu
-logging spanning-tree state-changes
+! STP topology changes generate syslog messages automatically in IOS.
+! No separate logging command needed.
 
-! Log port security violations
-logging port-security
+! Port security violations are logged automatically when configured with
+! "switchport port-security violation restrict" or "log" on the interface.
 
 end
 write memory
@@ -53,8 +51,8 @@ logging source-interface Vlan10
 logging facility local6
 logging buffered 4096
 
-! Access switch - focus on port security and VLAN events
-logging port-security violations
+! Port security violations are logged automatically when configured with
+! "switchport port-security violation restrict" or "log" on the interface.
 
 end
 write memory
@@ -70,8 +68,8 @@ logging source-interface Vlan20
 logging facility local6
 logging buffered 4096
 
-! Log guest VLAN violations and port security
-logging port-security violations
+! Port security violations are logged automatically when configured with
+! "switchport port-security violation restrict" or "log" on the interface.
 
 end
 write memory

@@ -9,7 +9,6 @@
 
   <!-- Port Scan Detection (Rule 5002) -->
   <rule id="5002" level="5">
-      <if_matched_group>network_scan</if_matched_group>
       <match>port unreachable|Connection refused</match>
       <description>Port scan detected from $(SRCIP)</description>
       <group>network,scan,reconnaissance</group>
@@ -31,7 +30,6 @@
 
   <!-- Guest VLAN Unauthorized Access (Rule 5005) -->
   <rule id="5005" level="8">
-      <if_matched_group>guest_vlan_violation</if_matched_group>
       <match>GUEST|VLAN 30</match>
       <description>Guest VLAN attempting to reach restricted subnet</description>
       <group>network,vlan,policy_violation</group>
