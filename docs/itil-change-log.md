@@ -41,7 +41,7 @@ Rollback:
 - Takes <30 minutes
 
 Verification:
-- Alert pipeline end-to-end: ssh brute force test triggers Rule 5001
+- Alert pipeline end-to-end: ssh brute force test triggers Rule 100001
 - All device syslog received: check alerts.json for source IPs 10.10.1.1, 10.10.1.2, etc.
 
 ### CHG-002: Syslog Forwarding Configuration
@@ -79,16 +79,16 @@ Requester: Security Team
 
 What's Changing:
 - Copy custom-rules.xml to /var/ossec/etc/rules/ on Wazuh manager
-- Load rules: rules 5001-5010 for network security, authentication, topology
+- Load rules: rules 100001-100010 for network security, authentication, topology
 
 Rules Deployed:
-- 5001: SSH brute force (level 7)
-- 5002: Port scan detection (level 5)
-- 5003: ACL violation (level 6)
-- 5004: STP topology change (level 7)
-- 5005: Guest VLAN unauthorized access (level 8)
-- 5006: Privileged account auth failure (level 8)
-- 5007-5010: Port security, MAC, OSPF, interface events
+- 100001: SSH brute force (level 7)
+- 100002: Port scan detection (level 5)
+- 100003: ACL violation (level 6)
+- 100004: STP topology change (level 7)
+- 100005: Guest VLAN unauthorized access (level 8)
+- 100006: Privileged account auth failure (level 8)
+- 100007-100010: Port security, MAC, OSPF, interface events
 
 Impact:
 - No impact during deployment (rules loaded on next service restart)
@@ -104,7 +104,7 @@ Rollback:
 
 Verification:
 - Rule syntax: /var/ossec/bin/wazuh-control rule-test
-- Alert triggers: SSH test generates Rule 5001 alert within 30 seconds
+- Alert triggers: SSH test generates Rule 100001 alert within 30 seconds
 
 ### CHG-004: Email Alerting for Critical Events
 
@@ -155,7 +155,7 @@ Impact:
 
 Metrics Available:
 - wazuh_alerts_total (counter of all alerts)
-- wazuh_alerts_by_level (5001=7, 5002=5, etc.)
+- wazuh_alerts_by_level (100001=7, 100002=5, etc.)
 - wazuh_syslog_sources (active source count)
 
 Risk: Low
@@ -177,12 +177,12 @@ Date: April 15, 2026 (Pending)
 Requester: Security Team
 
 What's Changing:
-- Reduce Rule 5001 (SSH brute force) threshold from 5 attempts to 3 attempts
-- Reduce false alert rate on Rule 5002 (port scan) by filtering localhost scans
+- Reduce Rule 100001 (SSH brute force) threshold from 5 attempts to 3 attempts
+- Reduce false alert rate on Rule 100002 (port scan) by filtering localhost scans
 - Increase alert suppression window to 15 minutes to reduce email spam
 
 Justification:
-- Initial 2-week monitoring showed 40% false positives on Rule 5002
+- Initial 2-week monitoring showed 40% false positives on Rule 100002
 - SSH threshold too high, missing early attack attempts
 - Email alerting generating 200+ daily messages (alert fatigue)
 

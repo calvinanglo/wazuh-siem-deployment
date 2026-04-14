@@ -6,7 +6,7 @@ Mapped to ITIL Incident Management. Wazuh alerts trigger these workflows based o
 
 ## IR-001: SSH Brute Force
 
-**Triggered by:** Rule 5001 (Level 7)
+**Triggered by:** Rule 100001 (Level 7)
 **Alert fields:** authentication, ssh, brute_force
 
 **Triage:**
@@ -36,11 +36,11 @@ If source is an internal host, pull it off the network and image the disk before
 
 ## IR-002: Port Scan Detection
 
-**Triggered by:** Rule 5002 (Level 6)
+**Triggered by:** Rule 100002 (Level 6)
 **Alert fields:** recon, port_scan, network
 
 **Triage:**
-Port scans from the guest VLAN (10.10.99.x) toward server or management VLANs are high priority - guests should not be scanning anything. Scans from within the same VLAN tier might be a misconfigured monitoring tool. Check if source IP is one of the Prometheus/blackbox exporters before escalating.
+Port scans from the guest VLAN (10.10.30.x) toward server or management VLANs are high priority - guests should not be scanning anything. Scans from within the same VLAN tier might be a misconfigured monitoring tool. Check if source IP is one of the Prometheus/blackbox exporters before escalating.
 
 **Containment:**
 If scan is from an unauthorized host, isolate the port via switch access port shutdown. Log the MAC address and port number.
@@ -66,7 +66,7 @@ Document the host and scan pattern. If the host is compromised, follow IR-001 st
 
 ## IR-003: ACL Violation
 
-**Triggered by:** Rule 5003 (Level 5)
+**Triggered by:** Rule 100003 (Level 5)
 **Alert fields:** firewall, acl, policy_violation
 
 **Triage:**
@@ -91,7 +91,7 @@ If misconfig: raise a Standard change to fix the ACL or VLAN assignment. If inte
 
 ## IR-004: Unexpected STP BPDU
 
-**Triggered by:** Rule 5004 (Level 8)
+**Triggered by:** Rule 100004 (Level 8)
 **Alert fields:** network, spanning_tree, topology_change
 
 **Triage:**
@@ -119,11 +119,11 @@ Re-enable portfast on edge ports. Audit all trunk ports to confirm they're termi
 
 ## IR-005: Guest VLAN Reaching Restricted Subnet
 
-**Triggered by:** Rule 5005 (Level 7)
+**Triggered by:** Rule 100005 (Level 7)
 **Alert fields:** policy_violation, vlan, lateral_movement
 
 **Triage:**
-Guest VLAN (10.10.99.x) should never reach VLAN 20 (servers) or VLAN 30 (management). Any alert here is either a routing misconfiguration or an active intrusion attempt. Check if the source IP is a guest device or something that got mis-assigned to the guest VLAN.
+Guest VLAN (10.10.30.x) should never reach VLAN 20 (servers) or VLAN 99 (management). Any alert here is either a routing misconfiguration or an active intrusion attempt. Check if the source IP is a guest device or something that got mis-assigned to the guest VLAN.
 
 **Containment:**
 Apply a deny ACE at the top of the inter-VLAN routing ACL immediately. Isolate the source host's switch port.
@@ -134,7 +134,7 @@ grep "guest_vlan" /var/ossec/logs/alerts/alerts.json | jq '.data.srcip, .data.ds
 ```
 
 **Remediation:**
-Verify that inter-VLAN ACLs on R1-CORE explicitly deny 10.10.99.0/24 to 10.10.20.0/24 and 10.10.30.0/24. If the ACL was missing or had a misconfigured permit, raise a Normal change to correct it and add a test case to the verification runbook.
+Verify that inter-VLAN ACLs on R1-CORE explicitly deny 10.10.30.0/24 to 10.10.20.0/24 and 10.10.99.0/24. If the ACL was missing or had a misconfigured permit, raise a Normal change to correct it and add a test case to the verification runbook.
 
 **ITIL Close:** Confirm ACL is in place, test traffic from guest range is dropped, and close ticket with config change reference.
 
@@ -142,7 +142,7 @@ Verify that inter-VLAN ACLs on R1-CORE explicitly deny 10.10.99.0/24 to 10.10.20
 
 ## IR-006: Privileged Account Failure
 
-**Triggered by:** Rule 5006 (Level 8)
+**Triggered by:** Rule 100006 (Level 8)
 **Alert fields:** authentication, privilege_escalation, admin
 
 **Triage:**

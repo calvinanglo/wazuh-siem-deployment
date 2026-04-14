@@ -1,72 +1,72 @@
 <group name="network_security">
 
-  <!-- SSH Brute Force Detection (Rule 5001) -->
-  <rule id="5001" level="7">
+  <!-- SSH Brute Force Detection (Rule 100001) -->
+  <rule id="100001" level="7">
       <match>invalid user|authentication failure|Failed password</match>
       <description>SSH brute force attempt detected</description>
       <group>authentication,ssh,brute_force</group>
   </rule>
 
-  <!-- Port Scan Detection (Rule 5002) -->
-  <rule id="5002" level="5">
+  <!-- Port Scan Detection (Rule 100002) -->
+  <rule id="100002" level="5">
       <match>port unreachable|Connection refused</match>
       <description>Port scan detected from $(SRCIP)</description>
       <group>network,scan,reconnaissance</group>
   </rule>
 
-  <!-- ACL Violation Logging (Rule 5003) -->
-  <rule id="5003" level="6">
+  <!-- ACL Violation Logging (Rule 100003) -->
+  <rule id="100003" level="6">
       <match>denied|dropped|blocked</match>
       <description>Access list violation detected from $(SRCIP) to $(DSTIP)</description>
       <group>network,security,acl</group>
   </rule>
 
-  <!-- Spanning Tree Topology Change (Rule 5004) -->
-  <rule id="5004" level="7">
+  <!-- Spanning Tree Topology Change (Rule 100004) -->
+  <rule id="100004" level="7">
       <match>topology change|BPDU|bridge ID|new root</match>
       <description>Unexpected spanning tree topology change detected</description>
       <group>network,spanning_tree,topology</group>
   </rule>
 
-  <!-- Guest VLAN Unauthorized Access (Rule 5005) -->
-  <rule id="5005" level="8">
-      <match>GUEST|VLAN 30</match>
+  <!-- Guest VLAN Unauthorized Access (Rule 100005) -->
+  <rule id="100005" level="8">
+      <match>GUEST-RESTRICT|VLAN0030|denied.*10.10.30</match>
       <description>Guest VLAN attempting to reach restricted subnet</description>
       <group>network,vlan,policy_violation</group>
   </rule>
 
-  <!-- Failed Authentication on Privileged Account (Rule 5006) -->
-  <rule id="5006" level="8">
-      <match>admin|root|enable|privilege</match>
+  <!-- Failed Authentication on Privileged Account (Rule 100006) -->
+  <rule id="100006" level="8">
+      <match>enable password|admin.*Failed|root.*authentication failure|privilege level</match>
       <match>Failed password|authentication failure</match>
       <description>Failed authentication on privileged account detected</description>
       <group>authentication,privilege_escalation,critical</group>
   </rule>
 
-  <!-- Port Security Violation (Rule 5007) -->
-  <rule id="5007" level="6">
+  <!-- Port Security Violation (Rule 100007) -->
+  <rule id="100007" level="6">
       <match>port security|secure MAC address|violation</match>
       <description>Port security violation detected on interface $(INTERFACE)</description>
       <group>network,switch,security</group>
   </rule>
 
-  <!-- Unauthorized Device Connection (Rule 5008) -->
-  <rule id="5008" level="7">
+  <!-- Unauthorized Device Connection (Rule 100008) -->
+  <rule id="100008" level="7">
       <match>unknown MAC|unauthorized MAC|MAC address</match>
       <description>Unauthorized MAC address detected on network</description>
       <group>network,device,unauthorized</group>
   </rule>
 
-  <!-- OSPF Neighbor Down (Rule 5009) -->
-  <rule id="5009" level="5">
+  <!-- OSPF Neighbor Down (Rule 100009) -->
+  <rule id="100009" level="5">
       <match>OSPF|neighbor|down|dead|timeout</match>
       <description>OSPF neighbor down event detected</description>
       <group>network,routing,ospf</group>
   </rule>
 
-  <!-- Interface Flap Detection (Rule 5010) -->
-  <rule id="5010" level="4">
-      <match>interface|line protocol|up|down</match>
+  <!-- Interface Flap Detection (Rule 100010) -->
+  <rule id="100010" level="4">
+      <match>changed state to|line protocol.*down|LINEPROTO-5-UPDOWN|LINK-3-UPDOWN</match>
       <description>Interface state change detected on $(INTERFACE)</description>
       <group>network,interface,link</group>
   </rule>

@@ -2,6 +2,26 @@
 
 Wazuh SIEM setup integrated with the enterprise network from Project 1. Covers deployment, custom detection rules, incident response workflows, and ITIL-based change management.
 
+## Project Series
+
+This is **Project 2 of 5** in a production enterprise environment build. Each project builds on the previous one.
+
+| # | Project | What It Adds |
+|---|---------|-------------|
+| 1 | [Enterprise Network Segmentation](https://github.com/calvinanglo/enterprise-network-segmentation) | VLANs, OSPF, ACLs, pfSense firewall |
+| 2 | [Wazuh SIEM Deployment](https://github.com/calvinanglo/wazuh-siem-deployment) | Centralized log collection, threat detection, incident response |
+| 3 | [Compliance Hardening Pipeline](https://github.com/calvinanglo/compliance-hardening-pipeline) | Automated CIS benchmarks across all devices |
+| 4 | [Network Monitoring Stack](https://github.com/calvinanglo/network-monitoring-stack) | Prometheus, Grafana, SNMP monitoring, SLA dashboards |
+| 5 | [DR & BC Simulation](https://github.com/calvinanglo/dr-bc-simulation) | Disaster recovery testing, backup validation, RTO/RPO measurement |
+
+### Prerequisites
+- **Complete [Project 1](https://github.com/calvinanglo/enterprise-network-segmentation) first** — Wazuh depends on the segmented network (VLANs, OSPF, ACLs) being in place
+- All four Cisco devices (R1-CORE, SW-DIST, SW-ACC-1, SW-ACC-2) and pfSense must be configured and forwarding syslog
+- A VM on VLAN 20 with Debian 11 or Ubuntu 22.04, 4GB RAM, 50GB disk
+
+### What's Next
+After completing this project, continue to [Project 3: Compliance Hardening Pipeline](https://github.com/calvinanglo/compliance-hardening-pipeline) to automate CIS benchmark enforcement across all devices in the network. The hardening pipeline uses the same device inventory and forwards audit logs to this Wazuh SIEM.
+
 ## What This Is
 
 This project demonstrates deploying Wazuh as a centralized SIEM for the network segmentation lab. Wazuh ingests syslog from all four network devices (R1-CORE, SW-DIST, SW-ACC-1, SW-ACC-2) and pfSense, enabling real-time threat detection and compliance monitoring.
@@ -34,7 +54,7 @@ wazuh-siem-deployment/
     ossec.conf                       # Wazuh manager config - syslog inputs, email alerts
     syslog-forwarding.txt            # IOS syslog config to apply on each Cisco device
   rules/
-    custom-rules.xml                 # rules 5001-5010 for network security events
+    custom-rules.xml                 # rules 100001-100010 for network security events
   playbooks/
     incident-response-workflows.md   # ITIL IR workflows for each alert type
   docs/
@@ -55,16 +75,16 @@ wazuh-siem-deployment/
 ## Custom Detection Rules
 
 The rules/ directory includes patterns for:
-- SSH brute force attempts (rule 5001)
-- Port scan detection from unused interfaces (rule 5002)
-- ACL violation logging (rule 5003)
-- Unexpected spanning tree BPDUs (rule 5004)
-- Guest VLAN reaching restricted subnets (rule 5005)
-- Failed authentication on privileged accounts (rule 5006)
-- Port security violation (rule 5007)
-- Unauthorized device connection (rule 5008)
-- OSPF neighbor down (rule 5009)
-- Interface flap detection (rule 5010)
+- SSH brute force attempts (rule 100001)
+- Port scan detection from unused interfaces (rule 100002)
+- ACL violation logging (rule 100003)
+- Unexpected spanning tree BPDUs (rule 100004)
+- Guest VLAN reaching restricted subnets (rule 100005)
+- Failed authentication on privileged accounts (rule 100006)
+- Port security violation (rule 100007)
+- Unauthorized device connection (rule 100008)
+- OSPF neighbor down (rule 100009)
+- Interface flap detection (rule 100010)
 
 Each rule includes severity levels (critical, high, medium) and grouping for dashboard aggregation.
 

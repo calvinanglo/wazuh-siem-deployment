@@ -77,7 +77,7 @@ sudo ufw enable
 
 ## Phase 4: Custom Rules
 
-Load the custom rules from rules/custom-rules.xml into Wazuh. These cover rules 5001-5006 for network-specific detection.
+Load the custom rules from rules/custom-rules.xml into Wazuh. These cover rules 100001-100010 for network-specific detection.
 
 ```bash
 sudo cp rules/custom-rules.xml /var/ossec/etc/rules/
@@ -95,7 +95,7 @@ Check rules loaded correctly:
 
 ```bash
 sudo /var/ossec/bin/wazuh-control status
-grep -r "rule id="500" /var/ossec/logs/ossec.log | tail -5
+grep -r "rule id=\"100" /var/ossec/logs/ossec.log | tail -5
 ```
 
 ## Phase 5: Syslog Forwarding from Network Devices
@@ -130,8 +130,8 @@ Approve enrollment in the Wazuh dashboard under Agents > Pending.
 
 Run the alert injection tests in verification/alert-tests.md to confirm the full detection pipeline is working. Key checks:
 
-- SSH brute force triggers rule 5001 within 60 seconds
-- Port scan attempt triggers rule 5002
+- SSH brute force triggers rule 100001 within 60 seconds
+- Port scan attempt triggers rule 100002
 - Syslog from all 4 network devices is appearing in archives
 - Dashboard is accessible at https://10.10.20.10
 

@@ -24,10 +24,9 @@ SW-DIST Configuration for Syslog to Wazuh
 
 config terminal
 
-! Layer 2 switch, use VIP (10.10.1.1) as source
 logging enable
 logging host 10.10.20.10
-logging source-interface Vlan10
+logging source-interface Vlan99
 logging facility local6
 logging buffered 8000
 
@@ -47,7 +46,7 @@ config terminal
 
 logging enable
 logging host 10.10.20.10
-logging source-interface Vlan10
+logging source-interface Vlan99
 logging facility local6
 logging buffered 4096
 
